@@ -1,0 +1,28 @@
+---
+- name: Configure DHCP Clients
+  hosts: clients
+  become: true
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Install DHCP client tools
+      ansible.builtin.apt:
+        name:
+          - net-tools
+          - iproute2
+          - isc-dhcp-client
+        state: present
+
+    - name: Request DHCP lease
+      ansible.builtin.command: dhclient -v
+      register: dhclient_result
+      changed_when: false
+      failed_when: false
+
+    - name: Show IP addresses
+      ansible.builtin.command: ip a
+      register: ip_result
+      changed_when: false
+      failed_when: false

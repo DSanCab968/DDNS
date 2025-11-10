@@ -1,0 +1,12 @@
+#Backup files
+*~
+*.bak
+
+#Ignore dirs
+.vagrant/
+.ansible/
+Images/
+
+
+#Ignore logs
+**/*.log
