@@ -1,0 +1,11 @@
+#Backup files
+*~
+*.bak
+
+#Ignore dirs
+.vagrant/
+.ansible/
+./Esquema.png
+
+#Ignore logs
+**/*.log
