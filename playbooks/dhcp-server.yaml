@@ -19,25 +19,57 @@
       ansible.builtin.lineinfile:
         path: /etc/default/isc-dhcp-server
         regexp: "^INTERFACESv4="
-        line: 'INTERFACESv4="eth2"'
+        line: 'INTERFACESv4="eth2"' # ha hecho falta poner este nombre en lugar de enp0sX porque fallaba
+
+    - name: Fetch TSIG key from DNS server
+      ansible.builtin.fetch:
+        src: /etc/bind/ddns.key
+        dest: /tmp/ddns.key
+        flat: true
+      delegate_to: dns-server
+
+    - name: Copy TSIG key to DHCP server
+      ansible.builtin.copy:
+        src: /tmp/ddns.key
+        dest: /etc/dhcp/ddns.key
+        owner: root
+        group: root
+        mode: '0600'
 
     - name: Deploy DHCP configuration
       ansible.builtin.copy:
         dest: /etc/dhcp/dhcpd.conf
         owner: root
         group: root
-        mode: "0600" # permiso mas seguro porque ansible-lint lo califica como risky
+        mode: "0644"
         content: |
           default-lease-time 86400;
           max-lease-time 691200;
           authoritative;
 
+          option domain-name "danisc.es";
+          option domain-name-servers 192.168.57.20;
+
           subnet 192.168.57.0 netmask 255.255.255.0 {
-            range 192.168.57.25 192.168.57.50;
+            range 192.168.57.30 192.168.57.50;
             option routers 192.168.57.10;
             option broadcast-address 192.168.57.255;
-            option domain-name-servers 8.8.8.8, 4.4.4.4;
-            option domain-name "micasa.es";
+          }
+
+          # Para DDNS:
+          include "/etc/dhcp/ddns.key";
+          ddns-update-style interim;
+          ddns-domainname "micasa.es.";
+          ddns-rev-domainname "57.168.192.in-addr.arpa.";
+
+          zone micasa.es. {
+            primary 192.168.57.20;
+            key "ddns-key";
+          }
+
+          zone 57.168.192.in-addr.arpa. {
+            primary 192.168.57.20;
+            key "ddns-key";
           }
 
     - name: Restart DHCP server

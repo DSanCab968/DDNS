@@ -15,14 +15,26 @@
           - isc-dhcp-client
         state: present
 
+    - name: Wait for network to be up
+      ansible.builtin.wait_for:
+        timeout: 10
+
     - name: Request DHCP lease
-      ansible.builtin.command: dhclient -v
+      ansible.builtin.command: dhclient -v enp0s8
       register: dhclient_result
       changed_when: false
       failed_when: false
+
+    - name: Show DHCP negotiation log
+      ansible.builtin.debug:
+        msg: "{{ dhclient_result.stdout }}"
 
     - name: Show IP addresses
       ansible.builtin.command: ip a
       register: ip_result
       changed_when: false
       failed_when: false
+
+    - name: Show obtained IP
+      ansible.builtin.debug:
+        msg: "{{ ip_result.stdout }}"

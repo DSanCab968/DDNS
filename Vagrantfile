@@ -5,17 +5,17 @@ Vagrant.configure("2") do |config|
 
     #Creación servidor DHCP 
     config.vm.define "dhcp-server" do |server|
-    server.vm.hostname = "server"
+    server.vm.hostname = "dhcp-server"
     server.vm.network "private_network", ip: "192.168.56.10"
     server.vm.network "private_network", 
                       ip: "192.168.57.10", 
                       virtualbox__intnet: "intNet1",
                       auto_config: true
     server.vm.network "forwarded_port", guest: 22, host: 2222, id: "ssh"
-    server.vm.provision "ansible" do |ansible|
-      ansible.playbook = "playbook.yaml"
-      ansible.inventory_path = "inventory.yaml"
-    end
+    #server.vm.provision "ansible" do |ansible|
+    # ansible.playbook = "playbooks/dhcp-server.yaml"
+    # ansible.inventory_path = "inventory.yaml"
+    #end
   end
 
   #Creacion servidor DNS
@@ -27,10 +27,10 @@ Vagrant.configure("2") do |config|
                virtualbox__intnet: "intNet1",
                auto_config: true
     dns.vm.network "forwarded_port", guest: 22, host: 2201, id: "ssh"
-    dns.vm.provision "ansible" do |ansible|
-      ansible.playbook = "playbook.yaml"
-      ansible.inventory_path = "inventory.yaml"
-    end
+    #dns.vm.provision "ansible" do |ansible|
+    # ansible.playbook = "playbooks/dns-server.yaml"
+    # ansible.inventory_path = "inventory.yaml"
+    #end
   end
 
 
@@ -42,8 +42,8 @@ Vagrant.configure("2") do |config|
                   type: "dhcp"
     c1.vm.network "forwarded_port", guest: 22, host: 2200, id: "ssh"
     c1.vm.provision "ansible" do |ansible|
-      ansible.playbook = "playbook.yaml"
-      ansible.inventory_path = "inventory.yaml"
+     ansible.playbook = "playbooks/client.yaml"
+     ansible.inventory_path = "inventory.yaml"
     end
   end
 end

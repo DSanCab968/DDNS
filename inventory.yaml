@@ -2,24 +2,23 @@ all:
   vars:
     ansible_user: vagrant
     ansible_python_interpreter: /usr/bin/python3
-    #con esta linea cogemos la private key de cada maquina sin tener que ponerla abajo en cada host o copiarla en el dir del proyecto 
-    #tirar primero un vagrant up --no-provision para que cree las maquinas y las claves, luego provisionaremos
-    ansible_private_key_file: ./.vagrant/machines/%(inventory_hostname)s/virtualbox/private_key
-
-
+  
   children:
     servers:
       hosts:
         dhcp-server:
           ansible_host: 127.0.0.1
           ansible_port: 2222
+          ansible_private_key_file: .vagrant/machines/dhcp-server/virtualbox/private_key
         dns-server:
           ansible_host: 127.0.0.1
           ansible_port: 2201
+          ansible_private_key_file: .vagrant/machines/dns-server/virtualbox/private_key
 
     clients:
       hosts:
         c1:
           ansible_host: 127.0.0.1
           ansible_port: 2200
+          ansible_private_key_file: .vagrant/machines/c1/virtualbox/private_key
 

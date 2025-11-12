@@ -2,7 +2,7 @@
 
 The objective of this practice is to create a dynamic DNS using a three virtual machines: DHCP server, DNS server and a client.
 
-![Esquema proyecto](Images/esquemaObjeto.png)
+![Esquema proyecto](Esquema.png)
 
 ------------------------------------------------------------------------
 
@@ -37,7 +37,7 @@ Daniel Sánchez Cabello
 
 ## 1. Vagrantfile Creation and VM's Network Configuration
 
-### 1.1 Server Creation
+### 1.1 DHCP Server Creation
 
 The first step is to tell Vagrant the box that we will use, in this case
 `debian/bullseye64`.
