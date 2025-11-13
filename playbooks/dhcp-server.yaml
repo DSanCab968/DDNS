@@ -19,7 +19,7 @@
       ansible.builtin.lineinfile:
         path: /etc/default/isc-dhcp-server
         regexp: "^INTERFACESv4="
-        line: 'INTERFACESv4="eth2"' # ha hecho falta poner este nombre en lugar de enp0sX porque fallaba
+        line: 'INTERFACESv4="eth1"' # ha hecho falta poner este nombre en lugar de enp0sX porque fallaba
 
     - name: Fetch TSIG key from DNS server
       ansible.builtin.fetch:
@@ -59,10 +59,10 @@
           # Para DDNS:
           include "/etc/dhcp/ddns.key";
           ddns-update-style interim;
-          ddns-domainname "micasa.es.";
+          ddns-domainname "danisc.es.";
           ddns-rev-domainname "57.168.192.in-addr.arpa.";
 
-          zone micasa.es. {
+          zone danisc.es. {
             primary 192.168.57.20;
             key "ddns-key";
           }
