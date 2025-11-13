@@ -19,6 +19,18 @@
       ansible.builtin.wait_for:
         timeout: 10
 
+    - name: Release any old DHCP leases
+      ansible.builtin.command: dhclient -r enp0s8
+      ignore_errors: true
+
+    - name: Remove old dhclient lease files
+      ansible.builtin.file:
+        path: /var/lib/dhcp/dhclient*.leases
+        state: absent
+
+    - name: Flush IP addresses on the interface
+      ansible.builtin.command: ip addr flush dev enp0s8
+
     - name: Request DHCP lease
       ansible.builtin.command: dhclient -v enp0s8
       register: dhclient_result
