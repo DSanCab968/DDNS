@@ -19,14 +19,6 @@
       ansible.builtin.wait_for:
         timeout: 10
 
-    - name: Ensure dhclient requests server-update
-      ansible.builtin.lineinfile:
-        path: /etc/dhcp/dhclient.conf
-        regexp: '^send fqdn\.server-update'
-        line: 'send fqdn.server-update true;'
-        state: present
-        insertafter: '^send fqdn\.fqdn'
-
     - name: Release any old DHCP leases
       ansible.builtin.command: dhclient -r enp0s8
       ignore_errors: true

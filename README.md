@@ -1,6 +1,6 @@
 # Practice 3 -- Dynamic DNS
 
-The objective of this practice is to create a dynamic DNS using a three virtual machines: DHCP server, DNS server and a client.
+The aim of this practice is to create a dynamic DNS using a three virtual machines: DHCP server, DNS server and a client.
 
 ![Esquema proyecto](Esquema.png)
 
@@ -10,163 +10,720 @@ The objective of this practice is to create a dynamic DNS using a three virtual 
 Daniel Sánchez Cabello
 
 **Course/Subject:** 2º ASIR B -- Network Services and Internet\
-**Finish date:** 
+**Finish date:** 15/11/2025
 
 ------------------------------------------------------------------------
 
 ## Index
 
-1.  [Vagrantfile Creation and VM's Network Configuration](#1-vagrantfile-creation-and-vms-network-configuration)
-    1.  [DHCP Server](#11-dhcp-server)
-    2.  [DNS Server](#12-client-1-creation)
-    3.  [Client 2 Creation](#13-client-2-creation)
-    4.  [Vagrantfile final result](#14-vagrantfile-final-result)
+1.  [Objective and procedure](#1-objective-and-procedure)
 
-2.  [Ansible files configuration](#2-ansible-files-configuration)
-    1.  [Creating Ansible configuration file](#21-creating-ansible-configuration-file)
-    2.  [Creating the inventory](#22-creating-the-inventory)
-    3.  [Creating the playbook](#23-creating-the-playbook)
+2.  [Vagrantfile Creation and VM's Network Configuration](#2-vagrantfile-creation-and-vms-network-configuration)
+    1.  [DHCP Server](#21-dhcp-server)
+    2.  [DNS Server](#22-dns-server)
+    3.  [Client](#23-client)
+    4.  [Vagrantfile](#24-vagrantfile)
 
-3.  [Verification](#3-verification)
-    1.  [Deploy of the playbook](#31-deploy-of-the-playbook)
-    2.  [Verifying addresses](#32-verifying-addresses)
+3.  [Ansible files configuration](#3-ansible-files-configuration)
+    1.  [Ansible configuration file](#31-ansible-configuration-file)
+    2.  [Inventory](#32-inventory)
+    3.  [Playbooks](#33-playbooks)
 
-
+4.  [Deploy and test](#4-deploy-and-test)
+    1.  [Running order](#41-running-order)
+    2.  [VM checks and extra configurations](#42-vm-checks-and-extra-configurations)
+    3.  [Checking if DDNS really works](#43-checking-if-ddns-really-works)
 
 ------------------------------------------------------------------------
 
-## 1. Vagrantfile Creation and VM's Network Configuration
+## 1. Objective and procedure
 
-### 1.1 DHCP Server Creation
+This practice focuses on the creation of a DDNS (Dynamic Domain Name Server). To do that we will use the following technologies:
+
+-   Vagrant: VM creation and general configuration.
+-   Ansible: provision for the machines using an inventory and a playbook for each machine.
+-   Bash: to create a running-order script to deploy everything and to configure a few other things.
+
+The practice can be done in multiple ways, but I tried to do it as automated as possible trying to do almost everything through Ansible playbooks. Finally, I couldn't manage to do it 100% automated but it works and the user will only need to enter the VMs to modify a few things.
+
+------------------------------------------------------------------------
+
+## 2. Vagrantfile Creation and VM's Network Configuration
 
 The first step is to tell Vagrant the box that we will use, in this case
 `debian/bullseye64`.
 
-Then we create the first VM called **server** and configure two network
-interfaces:
+### 2.1 DHCP Server
 
--   **Private network** -- `192.168.56.10` → to get a host-only
-    communication with our real computer.\
--   **Internal network** -- `192.168.57.10` → to communicate with the
-    two clients that will be isolated from our computer.
+Then we create the first VM called **server** and configure the network
+interface:
 
-After that, we must add the provision path. In that provision we will
-set further configurations.
+-   **Internal network** -- `192.168.57.10` → to communicate locally with the DNS server and the client.
+
+We won't add a provision path here. I'll talk about it in the running-order.
 
 ------------------------------------------------------------------------
 
-### 1.2 Client 1 Creation
+### 2.2 DNS Server
 
-Now, let's create the first client called **c1**.\
-This one will receive the IP from the server given a range of IPs
-(`192.168.57.25 – 192.168.57.50`).\
-That means that inside that range, it can receive any IP that is free
-from the server.
+Here we must do the same that we did with the DHCP Server.
 
-We must also configure the network as an internal network and specify
-that it will receive the IP through DHCP.\
-Also, set the path for the provision file.
+The only change will be the name and the IP address.
 
 ------------------------------------------------------------------------
 
-### 1.3 Client 2 Creation
+### 2.3 Client
 
-For the other client (**c2**), the process will be the same except for a
-detail:\
-the IP address it receives will be **fixed by MAC**, which means that we
-will indicate its MAC address and the server will always give the same
-IP to that MAC.
-
-Add the path for the provision too (it is the same for c1 and c2).
+For the client, do the same but set the IP to "dhcp". Also, here we will add the client provision because wi will provision it when we create the client machine.
 
 ------------------------------------------------------------------------
 
-### 1.4 Vagrantfile final result
+### 2.4 Vagrantfile
 
-Now, lets create the whole vagrantfile. Wecan add the provision with ansible to the vagrantfile directly so it will be used when we set up th machines with `vagrant up` or we can provision the machines later (when they are running) using the command `ansible-playbook [-i inventoryname.yml] [playbookname.yml]`. If we already have the default playbook in the configuration file, it is not necessary to write it in the previous command, do this instead: `ansible-playbook [playbookname.yml]`
+This is the full vagrantfile for this practice.
 
-<details><summary>Vagrantfile with provision</summary>
+<details><summary>Vagrantfile</summary>
 
 ```ruby
+    # -*- mode: ruby -*-
+    # vi: set ft=ruby :
+    Vagrant.configure("2") do |config|
+    config.vm.box = "debian/bullseye64"
+
+    #Creación servidor DHCP 
+    config.vm.define "dhcp-server" do |server|
+        server.vm.hostname = "dhcp-server"
+        server.vm.network "private_network", 
+                ip: "192.168.57.10", 
+                virtualbox__intnet: "intNet1",
+                auto_config: true
+    end
+
+    #Creacion servidor DNS
+    config.vm.define "dns-server" do |dns|
+        dns.vm.hostname = "dns-server"
+        dns.vm.network "private_network",
+                ip: "192.168.57.20",
+                virtualbox__intnet: "intNet1",
+                auto_config: true
+    
+    end
 
 
+    #Cliente 1
+    config.vm.define "c1" do |c1|
+        c1.vm.hostname = "c1"
+        c1.vm.network "private_network",
+                    virtualbox__intnet: "intNet1",
+                    type: "dhcp"
+        c1.vm.provision "ansible" do |ansible|
+        ansible.playbook = "playbooks/client.yaml"
+        ansible.inventory_path = "inventory.yaml"
+        end
+    end
+
+    end
 
 ```
 </details>
 
-## 2. Ansible files configuration
+## 3. Ansible files configuration
 
-This time we will do the provision using Ansible wich is a tool that allow us to provision in a more sofisticated and professional way. Instead of using scripts, we can make an inventory of machines adn run a playbook with tasks against the items of that inventory.
+The provision will be done using Ansible. First,, create and configure the config file, then the inventory and then the playbooks.
 
 ------------------------------------------------------------------------
 
-### 2.1 Creating Ansible configuration file 
+### 3.1 Ansible configuration file 
 
 Here we must include the general configuration for Ansible. For example we can set the path for the inventory that will be used for all the playbooks, so the we do not need to specificate. If we had different inventories, then we should not include any of the here. Also we can set the remote user and other parameters.
 
 File: `ansible.cfg`
 
+<details><summary>Ansible configuration</summary>
+
 ``` ini
 
+    [defaults]
+    inventory = ./inventory.yaml
+    remote_user = vagrant
+    host_key_checking = False
+    deprecation_warnings=False
+    retry_files_enabled=False
 
 ```
+</details>
 
 ------------------------------------------------------------------------
 
-### 2.2 Creating the inventory
+### 3.2 Inventory
 
 The inventory is used to have an organized list of the machines we will have and their general connection details, such as the IP, port, or key. We could have used Vagrant’s generic key for all the machines and included it under the vars section, where general parameters are set, but in this case, I assigned each machine the path to the key stored in its own files.
 
-File: `inventory.yml`
+File: `inventory.yaml`
 
-``` yml
+<details><summary>Inventory</summary>
+
+``` yaml
+
+    all:
+    vars:
+        ansible_user: vagrant
+        ansible_python_interpreter: /usr/bin/python3
+    
+    children:
+        servers:
+        hosts:
+            dhcp-server:
+            ansible_host: 127.0.0.1
+            ansible_port: 2200
+            ansible_private_key_file: .vagrant/machines/dhcp-server/virtualbox/private_key
+            dns-server:
+            ansible_host: 127.0.0.1
+            ansible_port: 2222
+            ansible_private_key_file: .vagrant/machines/dns-server/virtualbox/private_key
+
+        clients:
+        hosts:
+            c1:
+            ansible_host: 127.0.0.1
+            ansible_port: 2201
+            ansible_private_key_file: .vagrant/machines/c1/virtualbox/private_key
 
 ```
+</details>
 
 ------------------------------------------------------------------------
 
-### 2.3 Creating the playbook
+### 3.3 Playbooks
 
-First, connect via SSH to the three VMs and use `ip a` to chech the network adapter used for communication and the use the command `vagrant ssh-config` para ver los puertos de cada máquina. Esto es muy importante a la hora de crear el playbook.
+We must create a playbook for each machine. Inside them there will be a set of tasks that will be executed once we run the playbook.
+### DNS Server playbook
 
-We will do a series of tasks to install the dhcp tools, set the subnets configuration and check that everything is alright. The first group of tasks will be run on the server and the second in the clients. Here in the playbook, we run the tasks aiming the groups created on the inventory.
+Here we must install all the necessary things for running the DNS server. From here we'll generate and save the key (with TSIG), configure the local zones and create the files for the forward and reverse zones.
 
-File: `playbook.yml`
+File: `playbooks/dns-server.yaml`
+
+<details><summary>DNS Server</summary>
 
 ```yml
 
+    ---
+    - name: Configure DNS Server
+    hosts: dns-server
+    become: true
+    tasks:
+        - name: Update apt cache
+        ansible.builtin.apt:
+            update_cache: true
 
+        - name: Install DNS server tools
+        ansible.builtin.apt:
+            name:
+            - bind9
+            - bind9utils
+            - bind9-doc
+            - dnsutils
+            state: present
 
-```
+        - name: Generate TSIG key if not exists
+        ansible.builtin.command: tsig-keygen -a hmac-sha256 ddns-key
+        args:
+            creates: /etc/bind/ddns.key
+        register: tsig_key
+        notify: Save TSIG key
 
-------------------------------------------------------------------------
+        - meta: flush_handlers # forzar a llamar al handler pq si no se ejecuta al final
+        - name: Read TSIG key from file # lee y convierte a base64 el archivo pq no lee texto plano
+        ansible.builtin.slurp:
+            src: /etc/bind/ddns.key
+        register: keyfile
 
-## 3. Verification
+        - name: Add key definition to named.conf.options
+        ansible.builtin.blockinfile:
+            path: /etc/bind/named.conf.options
+            insertafter: EOF
+            marker: "# {mark} ANSIBLE DDNS KEY" # para que no duplique el contenido
+            block: "{{ (keyfile.content | b64decode).strip() }}" # decodeamos y ponemos el contenido tal cual estaba
 
-### 3.1 Deploy of the playbook
+        - name: Configure local zones
+        ansible.builtin.copy:
+            dest: /etc/bind/named.conf.local
+            content: |
+            zone "danisc.es" IN {
+                type master;
+                file "/etc/bind/db.danisc.es";
+                allow-update { key "ddns-key"; };
+            };
 
-Note: when running the playbook against machines running, there may be a error related to the time, if that occurs, reload and provision again the mchine.
+            zone "57.168.192.in-addr.arpa" IN {
+                type master;
+                file "/etc/bind/db.192";
+                allow-update { key "ddns-key"; };
+            };
 
-<details><summary>Console output of the playbook after run</summary>
+        - name: Create forward zone file
+        ansible.builtin.copy:
+            dest: /etc/bind/db.danisc.es
+            content: |
+            $TTL    604800
+            @       IN      SOA     dns-server.danisc.es. root.danisc.es. (
+                                    2         ; Serial
+                                    604800    ; Refresh
+                                    86400     ; Retry
+                                    2419200   ; Expire
+                                    604800 )  ; Negative Cache TTL
+            ;
+            @       IN      NS      dns-server.danisc.es.
+            dns-server   IN  A      192.168.57.20
 
-```bash
+        - name: Create reverse zone file
+        ansible.builtin.copy:
+            dest: /etc/bind/db.192
+            content: |
+            $TTL    604800
+            @       IN      SOA     dns-server.danisc.es. root.danisc.es. (
+                                    2         ; Serial
+                                    604800
+                                    86400
+                                    2419200
+                                    604800 )
+            ;
+            @       IN      NS      dns-server.danisc.es.
+            20      IN      PTR     dns-server.danisc.es.
+
+        - name: Check BIND9 configuration
+        ansible.builtin.command: named-checkconf
+
+        - name: Restart BIND9
+        ansible.builtin.service:
+            name: bind9
+            state: restarted
+            enabled: true
+
+    handlers: # en lugar de usar el when, usamos el handler para llamr al modulo save tsig key
+        - name: Save TSIG key
+        ansible.builtin.copy:
+            dest: /etc/bind/ddns.key
+            content: "{{ tsig_key.stdout }}"
+            owner: bind
+            group: bind
+            mode: "0600"
 
 
 ```
 </details>
 
-### 3.2 Verifiying addresses
+### DHCP Server playbook
 
-<details><summary>Server addresses</summary>
+Same as before, install the necessary dependencies and bring the key from the DNS server (must be identical). Also configure the dhcp configuration file.
+
+File: `playbooks/dhcp-server.yaml`
+
+<details><summary>DHCP Server</summary>
+
+```yml
+
+    ---
+    - name: Configure DHCP Server
+    hosts: dhcp-server
+    become: true
+    tasks:
+        - name: Update apt cache
+        ansible.builtin.apt:
+            update_cache: true
+
+        - name: Install DHCP server tools
+        ansible.builtin.apt:
+            name:
+            - isc-dhcp-server
+            - net-tools
+            - iproute2
+            state: present
+
+        - name: Configure DHCP server interface
+        ansible.builtin.lineinfile:
+            path: /etc/default/isc-dhcp-server
+            regexp: "^INTERFACESv4="
+            line: 'INTERFACESv4="eth1"' # ha hecho falta poner este nombre en lugar de enp0sX porque fallaba
+
+        - name: Fetch TSIG key from DNS server
+        ansible.builtin.fetch:
+            src: /etc/bind/ddns.key
+            dest: /tmp/ddns.key
+            flat: true
+        delegate_to: dns-server
+
+        - name: Copy TSIG key to DHCP server
+        ansible.builtin.copy:
+            src: /tmp/ddns.key
+            dest: /etc/dhcp/ddns.key
+            owner: root
+            group: root
+            mode: '0600'
+
+        - name: Deploy DHCP configuration
+        ansible.builtin.copy:
+            dest: /etc/dhcp/dhcpd.conf
+            owner: root
+            group: root
+            mode: "0644"
+            content: |
+            default-lease-time 86400;
+            max-lease-time 691200;
+            authoritative;
+
+            option domain-name "danisc.es";
+            option domain-name-servers 192.168.57.20;
+
+            subnet 192.168.57.0 netmask 255.255.255.0 {
+                range 192.168.57.30 192.168.57.50;
+                option routers 192.168.57.10;
+                option broadcast-address 192.168.57.255;
+            }
+
+            # Para DDNS:
+            include "/etc/dhcp/ddns.key";
+            ddns-update-style interim;
+            ddns-domainname "danisc.es.";
+            ddns-rev-domainname "57.168.192.in-addr.arpa.";
+
+            zone danisc.es. {
+                primary 192.168.57.20;
+                key "ddns-key";
+            }
+
+            zone 57.168.192.in-addr.arpa. {
+                primary 192.168.57.20;
+                key "ddns-key";
+            }
+
+        - name: Restart DHCP server
+        ansible.builtin.service:
+            name: isc-dhcp-server
+            state: restarted
+            enabled: true
+
+
+```
+</details>
+
+
+### Client playbook
+
+For the client install the necessary and then release any possible old leases. Also remove the old dhclient files. Clean the interface and request a new lease, the show the new ip received.
+
+File: `playbooks/client.yaml`
+
+<details><summary>Client</summary>
+
+```yml
+
+    ---
+    - name: Configure DHCP Clients
+    hosts: clients
+    become: true
+    tasks:
+        - name: Update apt cache
+        ansible.builtin.apt:
+            update_cache: true
+
+        - name: Install DHCP client tools
+        ansible.builtin.apt:
+            name:
+            - net-tools
+            - iproute2
+            - isc-dhcp-client
+            state: present
+
+        - name: Wait for network to be up
+        ansible.builtin.wait_for:
+            timeout: 10
+
+        - name: Release any old DHCP leases
+        ansible.builtin.command: dhclient -r enp0s8
+        ignore_errors: true
+
+        - name: Remove all old dhclient lease files
+        ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+        loop: "{{ lookup('fileglob', '/var/lib/dhcp/dhclient*.leases', wantlist=True) }}"
+
+        - name: Flush IP addresses on the interface
+        ansible.builtin.command: ip addr flush dev enp0s8
+
+        - name: Request new DHCP lease
+        ansible.builtin.command: dhclient -v enp0s8
+        register: dhclient_result
+        changed_when: false
+        failed_when: false
+
+        - name: Show DHCP negotiation log
+        ansible.builtin.debug:
+            msg: "{{ dhclient_result.stdout }}"
+
+        - name: Show current IP addresses
+        ansible.builtin.command: ip a
+        register: ip_result
+        changed_when: false
+        failed_when: false
+
+        - name: Show obtained IP
+        ansible.builtin.debug:
+            msg: "{{ ip_result.stdout }}"
+
+
+```
+</details>
+
+------------------------------------------------------------------------
+
+## 4. Deploy and Test
+
+### 4.1 Running order
+
+In order for the practice to work propperly, I created a script with a specific running order. First, we do "vagrant up" to dns and dhcp servers. Once they are running, we will provision them with Ansible, first the dns server to run bind and the the dhcp server. When this ins ready, we can create the client and provision it.
+
+File: `ordenEjecucion.sh`
+
+<details><summary>Running order</summary>
+
+```bash
+
+    #!/bin/bash
+    set -e
+
+    echo "=== Levantando servidores DNS y DHCP ==="
+    vagrant up dns-server dhcp-server --no-provision
+
+    echo "=== Provisionando DNS ==="
+    ansible-playbook playbooks/dns-server.yaml
+
+    echo "=== Provisionando DHCP ==="
+    ansible-playbook playbooks/dhcp-server.yaml
+
+    echo "=== Esperando unos segundos para que los servicios arranquen ==="
+    sleep 10
+
+    echo "=== Levantando cliente DHCP ==="
+    vagrant up c1 --provision
+
+    echo "=== Todo listo! ==="
+
+```
+</details>
+
+### 4.2 VM checks and extra configuration
+
+Now, if there are no errors we must enter each machine and check the status of the processes. Once everything is OK, we can go to the client and use dig to check the name resolutions with the dynamic ips.
+
+### DNS Server
+
+In order for the practice to work I had to adjust a few permissions related to bind and also deal with AppArmor. Basicly BIND had no permissions to creare the files "db.192.jnl" and "db.danisc.es.jnl", so I made bind the owner of the folder. Then I installed "apparmor-utils" and set it to "complain mode" so it would not cause trouble. The cause was that apparmor blocked named when trying to access or modify some files related to the practice.
+
+<details><summary>Commands used</summary>
+
+```bash
+
+    sudo apt isntall apparmor utils
+    sudo aa-complain /usr/sbin/named
+    sudo chown -R bind:bind /etc/bind
+    sudo chmod -R 755 /etc/bind
+    sudo rm /etc/bind/db.danisc.es.jnl
+    sudo rm /etc/bind/db.192.jnl
+    sudo systemctl restart bind9
+    sudo systemctl status bind9
+
+```
+</details>
+
+### DHCP Server
+
+Here I just had to restart the server and check if there were errors.
+
+```bash
+
+    sudo systemctl restart isc-dhcp-server
+    sudo systemctl status isc-dhcp-server
+
+```
+
+### Client
+
+Once teh other steps are ready, release the current address and ask for another. Then, try the dig commands and check ifit works.
+
+
+```bash
+
+    sudo dhclient -r enp0s8 && sudo dhclient -v enp0s8
+    dig @192.168.57.20 c1.danisc.es
+    dig -x 192.168.57.31 @192.168.57.20 
+
+```
+
+<details><summary>Output</summary>
+
+```bash
+
+    vagrant@c1:~$ dig @192.168.57.20 c1.danisc.es
+
+    ; <<>> DiG 9.16.50-Debian <<>> @192.168.57.20 c1.danisc.es
+    ; (1 server found)
+    ;; global options: +cmd
+    ;; Got answer:
+    ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 27315
+    ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+    ;; OPT PSEUDOSECTION:
+    ; EDNS: version: 0, flags:; udp: 1232
+    ; COOKIE: 490888fb4e055967010000006918c74d6adf370b53e38604 (good)
+    ;; QUESTION SECTION:
+    ;c1.danisc.es.                  IN      A
+
+    ;; ANSWER SECTION:
+    c1.danisc.es.           3600    IN      A       192.168.57.31
+
+    ;; Query time: 0 msec
+    ;; SERVER: 192.168.57.20#53(192.168.57.20)
+    ;; WHEN: Sat Nov 15 18:32:45 UTC 2025
+    ;; MSG SIZE  rcvd: 85
+
+
+    vagrant@c1:~$ dig -x 192.168.57.31 @192.168.57.20 
+
+    ; <<>> DiG 9.16.50-Debian <<>> -x 192.168.57.31 @192.168.57.20
+    ;; global options: +cmd
+    ;; Got answer:
+    ;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 51444
+    ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
+
+    ;; OPT PSEUDOSECTION:
+    ; EDNS: version: 0, flags:; udp: 1232
+    ; COOKIE: 36fde14df3564896010000006918c751979ebaaf1e852d5e (good)
+    ;; QUESTION SECTION:
+    ;31.57.168.192.in-addr.arpa.    IN      PTR
+
+    ;; AUTHORITY SECTION:
+    57.168.192.in-addr.arpa. 604800 IN      SOA     dns-server.danisc.es. root.danisc.es. 5 604800 86400 2419200 604800
+
+    ;; Query time: 0 msec
+    ;; SERVER: 192.168.57.20#53(192.168.57.20)
+    ;; WHEN: Sat Nov 15 18:32:49 UTC 2025
+    ;; MSG SIZE  rcvd: 144
+
+```
+</details>
+
+### 4.3 Checking if DDNS really works
+
+Ok, until now we know that the DHCP and DNS servers work, but it is really dynamic?
+To find out I'll change the IP range of the DHCP server to simulate that the client takes another different IP. I changed the previous range (.30 - .50) to ".35 - .50".
+
+```ini
+
+    subnet 192.168.57.0 netmask 255.255.255.0 {
+        range 192.168.57.35 192.168.57.50;
+        option routers 192.168.57.10;
+        option broadcast-address 192.168.57.255;
+    }
+
+```
+
+Then, restart the server:
+
+```bash
+
+    vagrant@dhcp-server:/etc/dhcp$ sudo systemctl restart isc-dhcp-server
+
+```
+
+Go to the client and again, release the ip and take a new one.
+
+<details><summary>Commands and output</summary>
 
 ```bash
 
 
+    vagrant@c1:~$ sudo dhclient -r enp0s8 && sudo dhclient -v enp0s8
+    Killed old client process
+    Internet Systems Consortium DHCP Client 4.4.1
+    Copyright 2004-2018 Internet Systems Consortium.
+    All rights reserved.
+    For info, please visit https://www.isc.org/software/dhcp/
+
+    Listening on LPF/enp0s8/08:00:27:96:fd:1f
+    Sending on   LPF/enp0s8/08:00:27:96:fd:1f
+    Sending on   Socket/fallback
+    DHCPDISCOVER on enp0s8 to 255.255.255.255 port 67 interval 4
+    DHCPOFFER of 192.168.57.35 from 192.168.57.10
+    DHCPREQUEST for 192.168.57.35 on enp0s8 to 255.255.255.255 port 67
+    DHCPACK of 192.168.57.35 from 192.168.57.10
+    bound to 192.168.57.35 -- renewal in 33298 seconds.
 
 ```
+</details>
+
+Now, check with dig again:
+
+<details><summary>Forward zone</summary>
+
+```bash
+
+    vagrant@c1:~$ dig @192.168.57.20 c1.danisc.es
+
+    ; <<>> DiG 9.16.50-Debian <<>> @192.168.57.20 c1.danisc.es
+    ; (1 server found)
+    ;; global options: +cmd
+    ;; Got answer:
+    ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 4136
+    ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+    ;; OPT PSEUDOSECTION:
+    ; EDNS: version: 0, flags:; udp: 1232
+    ; COOKIE: fb133889cd713f1e010000006918ca5a6c8a908635a08e27 (good)
+    ;; QUESTION SECTION:
+    ;c1.danisc.es.                  IN      A
+
+    ;; ANSWER SECTION:
+    c1.danisc.es.           3600    IN      A       192.168.57.35
+
+    ;; Query time: 0 msec
+    ;; SERVER: 192.168.57.20#53(192.168.57.20)
+    ;; WHEN: Sat Nov 15 18:45:46 UTC 2025
+    ;; MSG SIZE  rcvd: 85
+
+```
+</details>
+
+<details><summary>Reverse zone</summary>
+
+```bash
+
+    vagrant@c1:~$ dig -x 192.168.57.31 @192.168.57.20 
+
+    ; <<>> DiG 9.16.50-Debian <<>> -x 192.168.57.31 @192.168.57.20
+    ;; global options: +cmd
+    ;; Got answer:
+    ;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 23678
+    ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
+
+    ;; OPT PSEUDOSECTION:
+    ; EDNS: version: 0, flags:; udp: 1232
+    ; COOKIE: df858e56dad2427e010000006918ca63103f862662d3b998 (good)
+    ;; QUESTION SECTION:
+    ;31.57.168.192.in-addr.arpa.    IN      PTR
+
+    ;; AUTHORITY SECTION:
+    57.168.192.in-addr.arpa. 604800 IN      SOA     dns-server.danisc.es. root.danisc.es. 6 604800 86400 2419200 604800
+
+    ;; Query time: 4 msec
+    ;; SERVER: 192.168.57.20#53(192.168.57.20)
+    ;; WHEN: Sat Nov 15 18:45:55 UTC 2025
+    ;; MSG SIZE  rcvd: 144
 
 
-
+```
+</details>
 
 ------------------------------------------------------------------------
 
